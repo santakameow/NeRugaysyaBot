@@ -38,7 +38,9 @@ function normalize(text) {
  */
 function containsBadWords(text) {
   const normalized = normalize(text);
-  return badPatterns.some((pattern) => normalized.includes(pattern.replace(/ё/g, "е")));
+  return badPatterns.some((pattern) =>
+    normalized.includes(pattern.replace(/ё/g, "е")),
+  );
 }
 
 // ---- bot handlers ----
@@ -46,7 +48,7 @@ function containsBadWords(text) {
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
-    "Привет! Я слежу за чистотой речи в этом чате. Не ругайся! 🙅"
+    "Привет! Я слежу за чистотой речи в этом чате. Не ругайся!",
   );
 });
 
@@ -57,7 +59,7 @@ bot.on("message", (msg) => {
   if (msg.text.startsWith("/")) return;
 
   if (containsBadWords(msg.text)) {
-    bot.sendMessage(msg.chat.id, "Не ругайся! 🙅", {
+    bot.sendMessage(msg.chat.id, "Не ругайся!", {
       reply_to_message_id: msg.message_id,
     });
   }
