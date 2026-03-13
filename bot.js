@@ -4,9 +4,21 @@ const path = require("path");
 const TelegramBot = require("node-telegram-bot-api");
 
 // ---- paths ----
+// STATE_DIR allows mutable files to live outside the (potentially read-only)
+// install directory. Falls back to __dirname for local development.
 
-const BAD_WORDS_PATH = path.join(__dirname, "bad_words.txt");
-const ENV_PATH = path.join(__dirname, ".env");
+const STATE_DIR = process.env.STATE_DIR || __dirname;
+const BAD_WORDS_PATH = path.join(STATE_DIR, "bad_words.txt");
+const ENV_PATH = path.join(STATE_DIR, ".env");
+
+// On first run with a custom STATE_DIR, copy the default bad_words.txt if missing
+if (STATE_DIR !== __dirname) {
+  const defaultBadWords = path.join(__dirname, "bad_words.txt");
+  if (!fs.existsSync(BAD_WORDS_PATH) && fs.existsSync(defaultBadWords)) {
+    fs.copyFileSync(defaultBadWords, BAD_WORDS_PATH);
+    console.log(`[init] Скопирован bad_words.txt в ${STATE_DIR}`);
+  }
+}
 
 // ---- config ----
 
