@@ -1,6 +1,9 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 const TelegramBot = require("node-telegram-bot-api");
-const { badPatterns } = require("./bad_words.json");
+
+// ---- config ----
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -8,18 +11,31 @@ if (!token) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(token, { polling: true });
+const CHAT_ID = process.env.CHAT_ID ? Number(process.env.CHAT_ID) : null;
+const USER_IDS = process.env.USER_IDS
+  ? process.env.USER_IDS.split(",").map((id) => Number(id.trim()))
+  : [];
+
+// ---- load bad words from txt ----
+
+const badPatterns = fs
+  .readFileSync(path.join(__dirname, "bad_words.txt"), "utf-8")
+  .split("\n")
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"));
+
+console.log(`Загружено ${badPatterns.length} паттернов плохих слов.`);
+if (CHAT_ID) console.log(`Слежу за чатом: ${CHAT_ID}`);
+else console.log("CHAT_ID не задан — реагирую во всех чатах.");
+if (USER_IDS.length) console.log(`Слежу за юзерами: ${USER_IDS.join(", ")}`);
+else console.log("USER_IDS не заданы — реагирую на всех юзеров.");
 
 // ---- helpers ----
 
-/**
- * Нормализует текст: приводит к нижнему регистру,
- * заменяет частые "маскировки" символов на буквы.
- */
 function normalize(text) {
   return text
     .toLowerCase()
-    .replace(/[её]/g, "е") // ё -> е
+    .replace(/[её]/g, "е")
     .replace(/0/g, "о")
     .replace(/1/g, "и")
     .replace(/3/g, "з")
@@ -27,36 +43,33 @@ function normalize(text) {
     .replace(/@/g, "а")
     .replace(/\$/g, "с")
     .replace(/\*/g, "")
-    .replace(/\.\-/g, "")
+    .replace(/[.\-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-/**
- * Проверяет, содержит ли текст плохие слова.
- * Возвращает true если найдено совпадение.
- */
 function containsBadWords(text) {
   const normalized = normalize(text);
-  return badPatterns.some((pattern) =>
-    normalized.includes(pattern.replace(/ё/g, "е")),
-  );
+  return badPatterns.some((p) => normalized.includes(p.replace(/ё/g, "е")));
 }
 
-// ---- bot handlers ----
+function isTargetMessage(msg) {
+  if (CHAT_ID && msg.chat.id !== CHAT_ID) return false;
+  if (USER_IDS.length && !USER_IDS.includes(msg.from.id)) return false;
+  return true;
+}
+
+// ---- bot ----
+
+const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    "Привет! Я слежу за чистотой речи в этом чате. Не ругайся!",
-  );
+  bot.sendMessage(msg.chat.id, "Привет! Я слежу за чистотой речи. Не ругайся!");
 });
 
 bot.on("message", (msg) => {
-  if (!msg.text) return;
-
-  // Не реагируем на команды /start и т.п.
-  if (msg.text.startsWith("/")) return;
+  if (!msg.text || msg.text.startsWith("/")) return;
+  if (!isTargetMessage(msg)) return;
 
   if (containsBadWords(msg.text)) {
     bot.sendMessage(msg.chat.id, "Не ругайся!", {
@@ -65,4 +78,4 @@ bot.on("message", (msg) => {
   }
 });
 
-console.log("Бот запущен! Ожидаю сообщения...");
+console.log("Бот запущен!");
